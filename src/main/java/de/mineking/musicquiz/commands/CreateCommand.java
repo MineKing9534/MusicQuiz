@@ -7,7 +7,6 @@ import de.mineking.musicquiz.main.Main;
 import de.mineking.musicquiz.main.Messages;
 import de.mineking.musicquiz.quiz.Quest;
 import de.mineking.musicquiz.quiz.Quiz;
-import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
@@ -30,14 +29,7 @@ public class CreateCommand extends GlobalSlashCommand {
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
 	protected void performCommand(GlobalSlashContext context) {
-		if(!context.event.getMember().hasPermission(Permission.MANAGE_CHANNEL)) {
-			Messages.send(context.event, "create.permission", Messages.Color.ERROR);
-
-			return;
-		}
-
 		context.event.deferReply(true).queue();
 
 		try {
