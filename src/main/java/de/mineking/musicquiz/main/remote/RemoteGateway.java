@@ -1,10 +1,10 @@
 package de.mineking.musicquiz.main.remote;
 
-import de.mineking.musicquiz.main.Main;
+import de.mineking.musicquiz.main.MusicQuiz;
+import de.mineking.musicquiz.quiz.MemberData;
 import de.mineking.musicquiz.quiz.Quiz;
 import io.javalin.websocket.WsConfig;
 import io.javalin.websocket.WsContext;
-import net.dv8tion.jda.api.entities.User;
 import org.eclipse.jetty.websocket.core.CloseStatus;
 
 import java.util.HashMap;
@@ -14,31 +14,28 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-public class GatewayHandler implements Consumer<WsConfig> {
+public class RemoteGateway implements Consumer<WsConfig> {
 	private record Command(long time, String command) {
 	}
 
-	private record CommandData(long time, Quiz quiz, User user, Future<?> task) {
+	private record CommandData(long time, Quiz quiz, long user, Future<?> task) {
 	}
 
-	private static class RemoteData {
-		public final User user;
-		public final Quiz quiz;
-		public final Quiz.MemberData member;
-
-		public RemoteData(User user, Quiz quiz, Quiz.MemberData member) {
-			this.user = user;
-			this.quiz = quiz;
-			this.member = member;
-		}
+	private record RemoteData(long user, Quiz quiz, MemberData member) {
 	}
 
-	public final static Map<String, User> tokens = new HashMap<>();
-	public final static Map<WsContext, RemoteData> data = new ConcurrentHashMap<>();
+	private final MusicQuiz bot;
 
-	public final static Map<String, CommandData> commandBuffer = new HashMap<>();
+	public final Map<String, Long> tokens = new HashMap<>();
+	public final Map<WsContext, RemoteData> data = new ConcurrentHashMap<>();
 
-	private static void handleCommand(WsContext context, RemoteData data, Command command) {
+	public final Map<String, CommandData> commandBuffer = new HashMap<>();
+
+	public RemoteGateway(MusicQuiz bot) {
+		this.bot = bot;
+	}
+
+	private void handleCommand(WsContext context, RemoteData data, Command command) {
 		CommandData current = commandBuffer.get(command.command);
 
 		if(current == null || current.time > command.time) {
@@ -46,13 +43,10 @@ public class GatewayHandler implements Consumer<WsConfig> {
 				current.task.cancel(true);
 			}
 
-			Future<?> task = Main.executor.schedule(() -> {
-				switch(command.command) {
-					case "guess":
-						data.quiz.setGuesser(data.quiz.getMaster().getGuild().getMember(data.user));
-						data.quiz.updateMessages(null, null);
-
-						break;
+			Future<?> task = MusicQuiz.executor.schedule(() -> {
+				if(command.command.equals("guess")) {
+					data.quiz.setGuesser(data.quiz.getChannel().getGuild().getMemberById(data.user));
+					data.quiz.getMessages().updateMessages(null, null);
 				}
 
 				commandBuffer.remove(command.command);
@@ -71,14 +65,14 @@ public class GatewayHandler implements Consumer<WsConfig> {
 				return;
 			}
 
-			User user = tokens.get(context.header("Sec-WebSocket-Protocol"));
+			Long user = tokens.get(context.header("Sec-WebSocket-Protocol"));
 
 			Quiz quiz = null;
-			Quiz.MemberData member = null;
+			MemberData member = null;
 
-			for(Quiz q : Main.quizzes) {
+			for(Quiz q : bot.quizzes) {
 				for(var entry : q.getMembers().entrySet()) {
-					if(entry.getKey().getUser().equals(user)) {
+					if(entry.getKey() == user) {
 						quiz = q;
 						member = entry.getValue();
 
@@ -99,7 +93,7 @@ public class GatewayHandler implements Consumer<WsConfig> {
 				return;
 			}
 
-			context.send(user.getIdLong());
+			context.send(user);
 
 			member.remote = context;
 			quiz.sendUpdate();

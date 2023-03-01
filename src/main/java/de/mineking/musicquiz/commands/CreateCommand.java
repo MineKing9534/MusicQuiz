@@ -3,10 +3,10 @@ package de.mineking.musicquiz.commands;
 import de.mineking.discord.commands.commands.global.GlobalSlashCommand;
 import de.mineking.discord.commands.context.global.GlobalSlashContext;
 import de.mineking.discord.commands.option.Option;
-import de.mineking.musicquiz.main.Main;
 import de.mineking.musicquiz.main.Messages;
-import de.mineking.musicquiz.quiz.Quest;
+import de.mineking.musicquiz.main.MusicQuiz;
 import de.mineking.musicquiz.quiz.Quiz;
+import de.mineking.musicquiz.quiz.Track;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
@@ -22,7 +22,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class CreateCommand extends GlobalSlashCommand {
-	public CreateCommand() {
+	private final MusicQuiz bot;
+
+	public CreateCommand(MusicQuiz bot) {
+		this.bot = bot;
+
 		visibility = Visibility.GUILD_ONLY;
 
 		addOption(new Option(OptionType.ATTACHMENT, "file", true));
@@ -33,7 +37,7 @@ public class CreateCommand extends GlobalSlashCommand {
 		context.event.deferReply(true).queue();
 
 		try {
-			List<Quest> quests = parseQuests(context.getOption("file", OptionMapping::getAsAttachment).getProxy().download().get());
+			List<Track> quests = parseQuests(context.getOption("file", OptionMapping::getAsAttachment).getProxy().download().get());
 
 			VoiceChannel channel;
 
@@ -45,7 +49,7 @@ public class CreateCommand extends GlobalSlashCommand {
 				return;
 			}
 
-			Main.quizzes.add(new Quiz(channel, quests, context.event.getMember()));
+			bot.quizzes.add(new Quiz(bot, channel, quests, context.event.getMember()));
 
 			Messages.send(context.event, "create.success", Messages.Color.SUCCESS);
 		} catch(Exception e) {
@@ -55,8 +59,8 @@ public class CreateCommand extends GlobalSlashCommand {
 		}
 	}
 
-	List<Quest> parseQuests(InputStream stream) throws IOException {
-		List<Quest> result = new ArrayList<>();
+	List<Track> parseQuests(InputStream stream) throws IOException {
+		List<Track> result = new ArrayList<>();
 
 		try(InputStreamReader isr = new InputStreamReader(stream); BufferedReader reader = new BufferedReader(isr)) {
 			String line;
@@ -64,7 +68,7 @@ public class CreateCommand extends GlobalSlashCommand {
 				Matcher m = Pattern.compile("(?<url>.*?)\\?t=(?<start>\\d+) \\+(?<end>\\d+)s \"(?<title>.*?)\" - \"(?<artists>.*?)\"").matcher(line);
 
 				if(m.matches()) {
-					result.add(new Quest(
+					result.add(new Track(
 							m.group("url"),
 							Long.parseLong(m.group("start")),
 							Long.parseLong(m.group("end")),

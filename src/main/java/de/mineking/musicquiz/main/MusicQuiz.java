@@ -26,38 +26,43 @@ import java.util.ResourceBundle;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
-public class Main {
+public class MusicQuiz {
 	public final static ScheduledExecutorService executor = Executors.newScheduledThreadPool(30);
 
-	public static final List<Quiz> quizzes = new ArrayList<>();
+	public final List<Quiz> quizzes = new ArrayList<>();
 
-	public static final ResourceBundle commandInfo = ResourceBundle.getBundle("CommandInfo");
+	public final ResourceBundle commandInfo = ResourceBundle.getBundle("CommandInfo");
 
-	public static JDA jda;
-	public static CommandManager cmdMan;
+	public JDA jda;
+	public CommandManager cmdMan;
+	public final AudioPlayerManager audioPlayerManager = new DefaultAudioPlayerManager();
 
-	public static final AudioPlayerManager audioPlayerManager = new DefaultAudioPlayerManager();
+	public final RemoteServer server = new RemoteServer(this);
 
 	public static void main(String[] args) throws Exception {
 		if(args.length < 1) {
-			LoggerFactory.getLogger(Main.class).error("No token specified!");
+			LoggerFactory.getLogger(MusicQuiz.class).error("No token specified!");
 			return;
 		}
 
+		new MusicQuiz(args[0]);
+	}
+
+	public MusicQuiz(String token) throws InterruptedException {
 		cmdMan = CommandManagerBuilder.createDefault()
 				.setAutoUpdate(true)
-				.registerGlobalCommand("create", new CreateCommand())
-				.registerGlobalCommand("token", new TokenCommand())
-				.registerGlobalCommand("volume", new VolumeCommand())
+				.registerGlobalCommand("create", new CreateCommand(this))
+				.registerGlobalCommand("token", new TokenCommand(this))
+				.registerGlobalCommand("volume", new VolumeCommand(this))
 				.setLocaleMapper(
 						new DefaultLocalizationMapper(
 								Collections.singletonList(DiscordLocale.GERMAN), (lang, key) ->
-										commandInfo.getString(key)
+								commandInfo.getString(key)
 						)
 				)
 				.build();
 
-		jda = JDABuilder.createDefault(args[0])
+		jda = JDABuilder.createDefault(token)
 				.setStatus(OnlineStatus.ONLINE)
 				.setActivity(Activity.playing("MusicQuiz"))
 				.addEventListeners(cmdMan)
@@ -67,6 +72,6 @@ public class Main {
 		audioPlayerManager.registerSourceManager(new YoutubeAudioSourceManager());
 		audioPlayerManager.registerSourceManager(new HttpAudioSourceManager());
 
-		RemoteServer.start();
+		server.start();
 	}
 }

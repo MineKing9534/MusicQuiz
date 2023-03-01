@@ -1,17 +1,27 @@
 package de.mineking.musicquiz.main.remote;
 
 import com.google.gson.Gson;
+import de.mineking.musicquiz.main.MusicQuiz;
 import io.javalin.Javalin;
+import io.javalin.apibuilder.ApiBuilder;
 import io.javalin.json.JsonMapper;
 import io.javalin.plugin.bundled.CorsPluginConfig;
-import static io.javalin.apibuilder.ApiBuilder.*;
 
 import java.lang.reflect.Type;
 
 public class RemoteServer {
 	private final static Gson gson = new Gson();
 
-	public static void start() {
+	private final MusicQuiz bot;
+	public RemoteGateway gateway;
+
+	public RemoteServer(MusicQuiz bot) {
+		this.bot = bot;
+
+		gateway = new RemoteGateway(bot);
+	}
+
+	public void start() {
 		Javalin server = Javalin.create(config -> {
 			config.http.defaultContentType = "text/json";
 			config.jsonMapper(new JsonMapper() {
@@ -32,7 +42,7 @@ public class RemoteServer {
 		server.start(9536);
 
 		server.routes(() -> {
-			ws("/gateway", new GatewayHandler());
+			ApiBuilder.ws("/gateway", gateway);
 		});
 	}
 }

@@ -43,7 +43,7 @@ public class Messages {
 		}
 
 		else if(delete) {
-			event.replyEmbeds(buildEmbed(name, color, args)).setEphemeral(true).delay(10 , TimeUnit.SECONDS).flatMap(InteractionHook::deleteOriginal).queue(null, new ErrorHandler().ignore(ErrorResponse.UNKNOWN_MESSAGE));
+			event.replyEmbeds(buildEmbed(name, color, args)).setEphemeral(true).delay(10, TimeUnit.SECONDS).flatMap(InteractionHook::deleteOriginal).queue(null, new ErrorHandler().ignore(ErrorResponse.UNKNOWN_MESSAGE));
 		}
 
 		else {
