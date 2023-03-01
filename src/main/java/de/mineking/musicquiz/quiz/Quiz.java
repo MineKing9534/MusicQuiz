@@ -411,7 +411,7 @@ public class Quiz extends ListenerAdapter {
 
 	@Override
 	public void onGuildVoiceUpdate(GuildVoiceUpdateEvent event) {
-		if(event.getChannelJoined() != null && event.getChannelJoined().asVoiceChannel().equals(channel)) {
+		if(event.getChannelJoined() != null && event.getChannelJoined().equals(channel)) {
 			addMember(event.getMember());
 		}
 	}
