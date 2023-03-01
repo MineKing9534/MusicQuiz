@@ -46,6 +46,8 @@ public class CreateCommand extends GlobalSlashCommand {
 			}
 
 			Main.quizzes.add(new Quiz(channel, quests, context.event.getMember()));
+
+			Messages.send(context.event, "create.success", Messages.Color.SUCCESS);
 		} catch(Exception e) {
 			e.printStackTrace();
 
