@@ -35,6 +35,7 @@ import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
 import org.eclipse.jetty.websocket.core.CloseStatus;
 
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -66,6 +67,8 @@ public class Quiz extends ListenerAdapter {
 	private final VoiceChannel channel;
 	private final long message;
 	private InteractionHook hook;
+
+	private boolean started = false;
 
 	private final AudioPlayer player = Main.audioPlayerManager.createPlayer();
 
@@ -118,19 +121,25 @@ public class Quiz extends ListenerAdapter {
 				.setDescription(Messages.get("guess.text"))
 				.setThumbnail(guesser != null ? guesser.getEffectiveAvatarUrl() : null);
 
+		AtomicInteger i = new AtomicInteger(1);
+
 		builder.addField(
 				Messages.get("guess.points.title"),
-				"```ps\n" +
-						members.entrySet().stream()
+				"```ansi\n" + (
+						members.isEmpty()
+								? "\u001B[31m" + Messages.get("quiz.empty") + "\u001B[0m"
+								: members.entrySet().stream()
 								.sorted(Comparator.comparing(e -> e.getValue().points.get(), Comparator.reverseOrder()))
-								.map(e -> Messages.get("guess.points.line" + (e.getKey().equals(guesser) ? ".current" : (ignore.contains(e.getKey()) ? ".ignore" : "")), e.getKey().getEffectiveName(), e.getValue().points.get()))
-								.collect(Collectors.joining("\n")) +
-				"```",
+								.map(e -> Messages.get("guess.points.line" + (e.getKey().equals(guesser) ? ".current" : (ignore.contains(e.getKey()) ? ".ignore" : "")), i.getAndIncrement(), e.getKey().getEffectiveName(), e.getValue().points.get()))
+								.collect(Collectors.joining("\n"))
+				) +
+						"```",
 				true
 		);
 
 		if(guesser != null) {
 			builder.setFooter(Messages.get("guess.footer", guesser.getEffectiveName()));
+			builder.setTimestamp(Instant.ofEpochMilli(guessTime));
 		}
 
 		return new MessageEditBuilder()
@@ -197,6 +206,15 @@ public class Quiz extends ListenerAdapter {
 			options.add(option);
 		});
 
+		boolean empty = options.isEmpty();
+
+		if(empty) {
+			options.add(
+					SelectOption.of(Messages.get("quiz.empty"), "-")
+							.withDefault(true)
+			);
+		}
+
 		return new MessageEditBuilder()
 				.setEmbeds(builder.build())
 				.setComponents(
@@ -204,6 +222,7 @@ public class Quiz extends ListenerAdapter {
 								StringSelectMenu.create(channel.getId() + ":select")
 										.addOptions(options)
 										.build()
+										.withDisabled(empty)
 						),
 						ActionRow.of(
 								Button.primary(channel.getId() + ":free", Messages.get("quiz.free")),
@@ -240,7 +259,9 @@ public class Quiz extends ListenerAdapter {
 
 	public void updatePrivateMessage(IMessageEditCallback event) {
 		if(event == null) {
-			hook.editOriginal(buildPrivateMessage()).queue();
+			if(hook != null) {
+				hook.editOriginal(buildPrivateMessage()).queue();
+			}
 		}
 
 		else {
@@ -275,6 +296,8 @@ public class Quiz extends ListenerAdapter {
 
 		switch(temp[1]) {
 			case "start":
+				started = true;
+
 				if(!event.getMember().equals(master)) {
 					Messages.send(event, "start.invalid", Messages.Color.ERROR);
 
@@ -341,10 +364,18 @@ public class Quiz extends ListenerAdapter {
 
 				break;
 
-			case "add": members.get(selected).points.incrementAndGet(); updateMessages(event, Mode.PRIVATE); break;
-			case "remove": members.get(selected).points.decrementAndGet(); updateMessages(event, Mode.PRIVATE); break;
+			case "add":
+				members.get(selected).points.incrementAndGet();
+				updateMessages(event, Mode.PRIVATE);
+				break;
+			case "remove":
+				members.get(selected).points.decrementAndGet();
+				updateMessages(event, Mode.PRIVATE);
+				break;
 
-			case "next": position++; ignore.clear();
+			case "next":
+				position++;
+				ignore.clear();
 			case "restart":
 				guesser = null;
 
@@ -359,28 +390,17 @@ public class Quiz extends ListenerAdapter {
 
 				break;
 
-			case "run": quests.get(position).end = 0; playTrack(); updatePrivateMessage(event); break;
-			case "cancel": player.stopTrack(); updatePrivateMessage(event); break;
-
-			case "stop":
-				members.forEach((m, data) -> {
-					if(data.remote != null) {
-						data.remote.closeSession(CloseStatus.NORMAL, "Quiz has ended!");
-						GatewayHandler.data.remove(data.remote);
-					}
-				});
-
-				hook.deleteOriginal()
-						.and(channel.deleteMessageById(message))
-						.queue();
-
-				channel.getGuild().getAudioManager().closeAudioConnection();
-
-
-				Main.quizzes.remove(this);
-				Main.jda.removeEventListener(this);
-
+			case "run":
+				quests.get(position).end = 0;
+				playTrack();
+				updatePrivateMessage(event);
 				break;
+			case "cancel":
+				player.stopTrack();
+				updatePrivateMessage(event);
+				break;
+
+			case "stop": stop(); break;
 		}
 	}
 
@@ -409,10 +429,38 @@ public class Quiz extends ListenerAdapter {
 		members.putIfAbsent(m, new MemberData());
 	}
 
+	private void stop() {
+		members.forEach((m, data) -> {
+			if(data.remote != null) {
+				data.remote.closeSession(CloseStatus.NORMAL, "Quiz has ended!");
+				GatewayHandler.data.remove(data.remote);
+			}
+		});
+
+		if(hook != null) {
+			hook.deleteOriginal().queue();
+		}
+
+		channel.deleteMessageById(message).queue(null, new ErrorHandler().ignore(ErrorResponse.UNKNOWN_MESSAGE));
+		channel.getGuild().getAudioManager().closeAudioConnection();
+
+
+		Main.quizzes.remove(this);
+		Main.jda.removeEventListener(this);
+	}
+
 	@Override
 	public void onGuildVoiceUpdate(GuildVoiceUpdateEvent event) {
 		if(event.getChannelJoined() != null && event.getChannelJoined().equals(channel)) {
 			addMember(event.getMember());
+
+			if(isStarted()) {
+				updatePublicMessage(null);
+			}
+		}
+
+		if(event.getChannelLeft() != null && event.getChannelLeft().equals(channel) && event.getMember().equals(event.getGuild().getSelfMember())) {
+			stop();
 		}
 	}
 
@@ -441,13 +489,13 @@ public class Quiz extends ListenerAdapter {
 			}
 
 			@Override
-			public void playlistLoaded(AudioPlaylist playlist) { }
+			public void playlistLoaded(AudioPlaylist playlist) {}
 
 			@Override
-			public void noMatches() { System.out.println("no match for <" + url + ">!"); }
+			public void noMatches() {System.out.println("no match for <" + url + ">!");}
 
 			@Override
-			public void loadFailed(FriendlyException exception) { }
+			public void loadFailed(FriendlyException exception) {}
 		});
 	}
 
@@ -471,7 +519,8 @@ public class Quiz extends ListenerAdapter {
 	}
 
 	public record RemoteData(Map<String, RemoteMemberData> members, List<String> ignored, String guesser) {
-		public record RemoteMemberData(String name, Integer points) {}
+		public record RemoteMemberData(String name, Integer points) {
+		}
 	}
 
 	public void sendUpdate() {
@@ -493,7 +542,7 @@ public class Quiz extends ListenerAdapter {
 											)
 									),
 							ignore.stream().map(Member::getId).toList(),
-							guesser != null ? guesser.getId(): null
+							guesser != null ? guesser.getId() : null
 					),
 					RemoteData.class
 			);
@@ -539,6 +588,6 @@ public class Quiz extends ListenerAdapter {
 	}
 
 	public boolean isStarted() {
-		return hook != null;
+		return started;
 	}
 }
