@@ -1,6 +1,7 @@
 package de.mineking.musicquiz.quiz;
 
 import de.mineking.musicquiz.main.Messages;
+import de.mineking.musicquiz.quiz.remote.EventData;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
@@ -81,11 +82,16 @@ public class EventHandler extends ListenerAdapter {
 
 				break;
 
-			case "free":
-				quiz.guesser = 0;
-				quiz.guessTime = 0;
+			case "correct":
+				Track track = quiz.tracks.get(quiz.position);
 
-				quiz.getMessages().updateMessages(event, MessageManager.Mode.PRIVATE);
+				quiz.sendToAll(new EventData(EventData.Action.SOLUTION)
+						.put("url", track.url + "?t=" + track.start)
+						.put("title", track.title)
+						.put("author", track.author)
+				);
+
+				quiz.messages.updatePrivateMessage(event);
 
 				break;
 

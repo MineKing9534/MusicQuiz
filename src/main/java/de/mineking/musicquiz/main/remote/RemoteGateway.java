@@ -3,6 +3,7 @@ package de.mineking.musicquiz.main.remote;
 import de.mineking.musicquiz.main.MusicQuiz;
 import de.mineking.musicquiz.quiz.MemberData;
 import de.mineking.musicquiz.quiz.Quiz;
+import de.mineking.musicquiz.quiz.remote.EventData;
 import io.javalin.websocket.WsConfig;
 import io.javalin.websocket.WsContext;
 import org.eclipse.jetty.websocket.core.CloseStatus;
@@ -94,9 +95,8 @@ public class RemoteGateway implements Consumer<WsConfig> {
 				return;
 			}
 
-			context.send(user);
-
 			member.remote = context;
+			member.send(new EventData(EventData.Action.LOGIN).put("id", user));
 			quiz.sendUpdate();
 
 			quiz.onRemoteConnect(user);

@@ -7,19 +7,23 @@ import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.TrackMarker;
 import de.mineking.musicquiz.main.MusicQuiz;
+import de.mineking.musicquiz.quiz.remote.EventData;
+import de.mineking.musicquiz.quiz.remote.QuizData;
+import de.mineking.musicquiz.quiz.remote.RemoteData;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.eclipse.jetty.websocket.core.CloseStatus;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 public class Quiz extends ListenerAdapter {
 	public final static String buzzer = "https://assets.mixkit.co/sfx/preview/mixkit-game-show-wrong-answer-buzz-950.mp3";
+	public final static Duration guessDuration = Duration.ofSeconds(15);
 
 	final MusicQuiz bot;
 	boolean started = false;
@@ -34,7 +38,9 @@ public class Quiz extends ListenerAdapter {
 	final Map<Long, MemberData> members = new HashMap<>();
 	long selected;
 	final List<Long> ignore = new ArrayList<>();
+
 	long guesser;
+	private Future<?> guesserReset;
 
 	long guessTime = 0;
 
@@ -85,6 +91,14 @@ public class Quiz extends ListenerAdapter {
 		return members;
 	}
 
+	public List<Long> getIgnored() {
+		return ignore;
+	}
+
+	public Long getGuesser() {
+		return guesser;
+	}
+
 	public long getMaster() {
 		return master;
 	}
@@ -110,6 +124,18 @@ public class Quiz extends ListenerAdapter {
 		guesser = member.getIdLong();
 		selected = guesser;
 		guessTime = System.currentTimeMillis();
+
+		if(guesserReset != null) {
+			guesserReset.cancel(true);
+		}
+
+		sendToMember(guesser, new EventData(EventData.Action.GUESS).put("time", guessDuration.toMillis()));
+		guesserReset = MusicQuiz.executor.schedule(() -> {
+			guesser = 0;
+			guessTime = 0;
+
+			messages.updateMessages(null, null);
+		}, guessDuration.toMillis(), TimeUnit.MILLISECONDS);
 	}
 
 	public void setVolume(int volume) {
@@ -168,37 +194,16 @@ public class Quiz extends ListenerAdapter {
 		});
 	}
 
+	public void sendToMember(long member, RemoteData data) {
+		members.get(member).send(data);
+	}
 
-	//TODO improve website access
-	public record RemoteData(Map<String, RemoteMemberData> members, List<String> ignored, String guesser) {
-		public record RemoteMemberData(String name, Integer points) {
-		}
+	public void sendToAll(RemoteData data) {
+		members.forEach((id, m) -> m.send(data));
 	}
 
 	public void sendUpdate() {
-		members.forEach((member, data) -> {
-			if(data.remote == null) {
-				return;
-			}
-
-			data.remote.sendAsClass(
-					new RemoteData(
-							members.entrySet().stream()
-									.collect(
-											Collectors.toMap(
-													e -> String.valueOf(e.getKey()),
-													e -> new RemoteData.RemoteMemberData(
-															channel.getGuild().getMemberById(e.getKey()).getEffectiveName(),
-															e.getValue().points.get()
-													)
-											)
-									),
-							ignore.stream().map(String::valueOf).toList(),
-							guesser != 0 ? String.valueOf(guesser) : null
-					),
-					RemoteData.class
-			);
-		});
+		sendToAll(new QuizData(this));
 	}
 
 	private final Map<Long, Future<?>> ignoreConnect = new HashMap<>();

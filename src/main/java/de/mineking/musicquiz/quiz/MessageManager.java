@@ -19,7 +19,6 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -171,7 +170,7 @@ public class MessageManager {
 										.withDisabled(empty)
 						),
 						ActionRow.of(
-								Button.primary(quiz.channel.getId() + ":free", Messages.get("quiz.free")),
+								Button.primary(quiz.channel.getId() + ":correct", Messages.get("quiz.correct")),
 								Button.primary(quiz.channel.getId() + ":freeuser", Messages.get("quiz.freeuser")),
 								Button.primary(quiz.channel.getId() + ":freeall", Messages.get("quiz.freeall")),
 								Button.primary(quiz.channel.getId() + ":add", Messages.get("quiz.add")),
@@ -193,7 +192,7 @@ public class MessageManager {
 
 	public void updatePublicMessage(IMessageEditCallback event) {
 		if(event == null) {
-			quiz.channel.editMessageById(message, buildPublicMessage()).queue();
+			quiz.channel.editMessageById(message, buildPublicMessage()).queue(null, new ErrorHandler().ignore(ErrorResponse.UNKNOWN_MESSAGE));
 		}
 
 		else {
@@ -206,7 +205,7 @@ public class MessageManager {
 	public void updatePrivateMessage(IMessageEditCallback event) {
 		if(event == null) {
 			if(hook != null) {
-				hook.editOriginal(buildPrivateMessage()).queue();
+				hook.editOriginal(buildPrivateMessage()).queue(null, new ErrorHandler().ignore(ErrorResponse.UNKNOWN_MESSAGE));
 			}
 		}
 
