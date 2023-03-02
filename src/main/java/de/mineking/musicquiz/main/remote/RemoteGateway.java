@@ -9,6 +9,7 @@ import org.eclipse.jetty.websocket.core.CloseStatus;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -72,7 +73,7 @@ public class RemoteGateway implements Consumer<WsConfig> {
 
 			for(Quiz q : bot.quizzes) {
 				for(var entry : q.getMembers().entrySet()) {
-					if(entry.getKey() == user) {
+					if(Objects.equals(entry.getKey(), user)) {
 						quiz = q;
 						member = entry.getValue();
 
