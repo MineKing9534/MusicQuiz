@@ -10,13 +10,15 @@ public class QuizData extends RemoteData {
 	public record RemoteMemberData(String name, Integer points) {
 	}
 
-	public Map<String, RemoteMemberData> members;
-	public List<String> ignored;
-	public String guesser;
+	public final String channel;
+	public final Map<String, RemoteMemberData> members;
+	public final List<String> ignored;
+	public final String guesser;
 
 	public QuizData(Quiz quiz) {
 		super(Type.UPDATE);
 
+		this.channel = quiz.getChannel().getName();
 		this.members = quiz.getMembers().entrySet().stream()
 				.collect(
 						Collectors.toMap(
