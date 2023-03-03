@@ -17,6 +17,8 @@ import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.interactions.DiscordLocale;
+import net.dv8tion.jda.api.requests.GatewayIntent;
+import net.dv8tion.jda.api.utils.MemberCachePolicy;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
@@ -63,8 +65,10 @@ public class MusicQuiz {
 				.build();
 
 		jda = JDABuilder.createDefault(token)
+				.enableIntents(GatewayIntent.GUILD_MEMBERS)
 				.setStatus(OnlineStatus.ONLINE)
 				.setActivity(Activity.playing("MusicQuiz"))
+				.setMemberCachePolicy(MemberCachePolicy.ALL)
 				.addEventListeners(cmdMan)
 				.build()
 				.awaitReady();
