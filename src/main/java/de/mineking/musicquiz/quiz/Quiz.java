@@ -13,6 +13,7 @@ import de.mineking.musicquiz.quiz.remote.RemoteData;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
 import org.eclipse.jetty.websocket.core.CloseStatus;
 
 import java.time.Duration;
@@ -26,7 +27,7 @@ public class Quiz extends ListenerAdapter {
 	public final static Duration guessDuration = Duration.ofSeconds(15);
 
 	final MusicQuiz bot;
-	boolean started = false;
+	private boolean started = false;
 
 	final EventHandler events;
 	final MessageManager messages;
@@ -73,6 +74,24 @@ public class Quiz extends ListenerAdapter {
 		channel.getGuild().getAudioManager().openAudioConnection(channel);
 		channel.getGuild().getAudioManager().setSelfDeafened(true);
 		channel.getGuild().getAudioManager().setSendingHandler(new SendHandler(player));
+	}
+
+	public void start(IReplyCallback event) {
+		started = true;
+
+		messages.updatePublicMessage(null);
+		messages.sendPrivateMessage(event);
+
+		bot.server.gateway.data.forEach((context, user) -> {
+			if(members.containsKey(user.user)) {
+				user.quiz = this;
+				user.member = members.get(user.user);
+
+				user.member.remote = context;
+			}
+		});
+
+		sendUpdate();
 	}
 
 	public boolean isStarted() {

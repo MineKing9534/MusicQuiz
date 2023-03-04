@@ -23,13 +23,23 @@ public class RemoteGateway implements Consumer<WsConfig> {
 	private record CommandData(long time, Quiz quiz, long user, Future<?> task) {
 	}
 
-	private record RemoteData(long user, Quiz quiz, MemberData member) {
+	public static class UserData {
+		public final long user;
+
+		public Quiz quiz;
+		public MemberData member;
+
+		public UserData(long user, Quiz quiz, MemberData member) {
+			this.user = user;
+			this.quiz = quiz;
+			this.member = member;
+		}
 	}
 
 	private final MusicQuiz bot;
 
 	public final Map<String, Long> tokens = new HashMap<>();
-	public final Map<WsContext, RemoteData> data = new ConcurrentHashMap<>();
+	public final Map<WsContext, UserData> data = new ConcurrentHashMap<>();
 
 	public final Map<String, CommandData> commandBuffer = new HashMap<>();
 
@@ -37,7 +47,7 @@ public class RemoteGateway implements Consumer<WsConfig> {
 		this.bot = bot;
 	}
 
-	private void handleCommand(WsContext context, RemoteData data, Command command) {
+	private void handleCommand(WsContext context, UserData data, Command command) {
 		context.sendAsClass(new EventData(EventData.Action.WAIT), EventData.class);
 
 		CommandData current = commandBuffer.get(command.command);
@@ -85,35 +95,27 @@ public class RemoteGateway implements Consumer<WsConfig> {
 				}
 			}
 
-			if(quiz == null) {
-				context.closeSession(CloseStatus.NORMAL, "No Quiz for user");
+			if(quiz != null && quiz.isStarted()) {
+				member.remote = context;
 
-				return;
+				quiz.sendUpdate();
+				quiz.onRemoteConnect(user);
 			}
 
-			if(!quiz.isStarted()) {
-				context.closeSession(CloseStatus.NORMAL, "Quiz hasn't started yet!");
-
-				return;
-			}
-
-			member.remote = context;
-			member.send(new EventData(EventData.Action.LOGIN).put("id", String.valueOf(user)));
-			quiz.sendUpdate();
-
-			quiz.onRemoteConnect(user);
+			context.sendAsClass(new EventData(EventData.Action.LOGIN).put("id", String.valueOf(user)).put("quiz", quiz != null), EventData.class);
 
 			context.enableAutomaticPings(500, TimeUnit.MILLISECONDS);
-
-			data.put(context, new RemoteData(user, quiz, member));
+			data.put(context, new UserData(user, quiz, member));
 		});
 
 		wsConfig.onClose(context -> {
 			if(data.containsKey(context)) {
-				RemoteData temp = data.get(context);
-				temp.member.remote = null;
+				UserData temp = data.get(context);
 
-				temp.quiz.onRemoteDisconnect(temp.user);
+				if(temp.quiz != null) {
+					temp.member.remote = null;
+					temp.quiz.onRemoteDisconnect(temp.user);
+				}
 
 				data.remove(context);
 			}

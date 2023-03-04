@@ -39,16 +39,13 @@ public class EventHandler extends ListenerAdapter {
 
 		switch(temp[1]) {
 			case "start":
-				quiz.started = true;
-
 				if(event.getMember().getIdLong() != quiz.master) {
 					Messages.send(event, "start.invalid", Messages.Color.ERROR);
 
 					return;
 				}
 
-				quiz.getMessages().updatePublicMessage(null);
-				quiz.getMessages().sendPrivateMessage(event);
+				quiz.start(event);
 
 				break;
 
