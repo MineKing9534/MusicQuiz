@@ -38,6 +38,8 @@ public class RemoteGateway implements Consumer<WsConfig> {
 	}
 
 	private void handleCommand(WsContext context, RemoteData data, Command command) {
+		context.sendAsClass(new EventData(EventData.Action.WAIT), EventData.class);
+
 		CommandData current = commandBuffer.get(command.command);
 
 		if(current == null || current.time > command.time) {

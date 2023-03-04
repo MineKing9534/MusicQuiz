@@ -5,7 +5,7 @@ import java.util.Map;
 
 public class EventData extends RemoteData {
 	public enum Action {
-		LOGIN, GUESS, SOLUTION
+		LOGIN, WAIT, GUESS, SOLUTION
 	}
 
 	public final Action action;
