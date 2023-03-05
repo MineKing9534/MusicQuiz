@@ -68,8 +68,11 @@ public class MessageManager {
 								: quiz.getMembers().entrySet().stream()
 								.sorted(Comparator.comparing(e -> e.getValue().points.get(), Comparator.reverseOrder()))
 								.map(e ->
-										Messages.get("guess.points.line" +
-														(e.getKey() == quiz.guesser
+										e.getKey() == quiz.master
+												? Messages.get("guess.points.line.master", quiz.channel.getGuild().getMemberById(e.getKey()).getEffectiveName())
+												: Messages.get("guess.points.line" +
+														(
+																e.getKey() == quiz.guesser
 																? ".current"
 																: (quiz.ignore.contains(e.getKey()) ? ".ignore" : "")
 														),

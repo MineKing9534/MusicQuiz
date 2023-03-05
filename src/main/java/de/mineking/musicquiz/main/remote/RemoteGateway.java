@@ -95,14 +95,14 @@ public class RemoteGateway implements Consumer<WsConfig> {
 				}
 			}
 
+			context.sendAsClass(new EventData(EventData.Action.LOGIN).put("id", String.valueOf(user)).put("quiz", quiz != null), EventData.class);
+
 			if(quiz != null && quiz.isStarted()) {
 				member.remote = context;
 
 				quiz.sendUpdate();
 				quiz.onRemoteConnect(user);
 			}
-
-			context.sendAsClass(new EventData(EventData.Action.LOGIN).put("id", String.valueOf(user)).put("quiz", quiz != null), EventData.class);
 
 			context.enableAutomaticPings(500, TimeUnit.MILLISECONDS);
 			data.put(context, new UserData(user, quiz, member));

@@ -18,6 +18,7 @@ public class QuizData extends RemoteData {
 	public final Map<String, RemoteMemberData> members;
 	public final List<String> ignored;
 	public final String guesser;
+	public final String master;
 
 	public QuizData(Quiz quiz) {
 		super(Type.UPDATE);
@@ -60,5 +61,6 @@ public class QuizData extends RemoteData {
 
 		this.ignored = quiz.getIgnored().stream().map(String::valueOf).toList();
 		this.guesser = quiz.getGuesser() != 0 ? String.valueOf(quiz.getGuesser()) : null;
+		this.master = String.valueOf(quiz.getMaster());
 	}
 }

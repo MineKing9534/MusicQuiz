@@ -123,11 +123,11 @@ public class Quiz extends ListenerAdapter {
 	}
 
 	public void addMember(Member m) {
-		if(m.getIdLong() == master || m.getUser().isBot()) {
+		if(m.getUser().isBot()) {
 			return;
 		}
 
-		members.putIfAbsent(m.getIdLong(), new MemberData());
+		members.putIfAbsent(m.getIdLong(), new MemberData(m.getIdLong() == master ? Integer.MAX_VALUE : 0));
 	}
 
 	public void setGuesser(Member member) {
@@ -228,6 +228,10 @@ public class Quiz extends ListenerAdapter {
 	private final Map<Long, Future<?>> ignoreConnect = new HashMap<>();
 
 	private void handleConnect(long user, String name) {
+		if(user == master) {
+			return;
+		}
+
 		boolean contains = false;
 
 		if(ignoreConnect.containsKey(user)) {
