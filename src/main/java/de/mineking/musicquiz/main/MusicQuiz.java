@@ -19,7 +19,6 @@ import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.MemberCachePolicy;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,6 +29,8 @@ import java.util.concurrent.ScheduledExecutorService;
 
 public class MusicQuiz {
 	public final static ScheduledExecutorService executor = Executors.newScheduledThreadPool(30);
+
+	public final Config config;
 
 	public final List<Quiz> quizzes = new ArrayList<>();
 
@@ -42,15 +43,12 @@ public class MusicQuiz {
 	public final RemoteServer server = new RemoteServer(this);
 
 	public static void main(String[] args) throws Exception {
-		if(args.length < 1) {
-			LoggerFactory.getLogger(MusicQuiz.class).error("No token specified!");
-			return;
-		}
-
-		new MusicQuiz(args[0]);
+		new MusicQuiz(args.length == 1 ? args[0] : "config");
 	}
 
-	public MusicQuiz(String token) throws InterruptedException {
+	public MusicQuiz(String config) throws Exception {
+		this.config = Config.readFromFile(config);
+
 		cmdMan = CommandManagerBuilder.createDefault()
 				.setAutoUpdate(true)
 				.registerGlobalCommand("create", new CreateCommand(this))
@@ -64,7 +62,7 @@ public class MusicQuiz {
 				)
 				.build();
 
-		jda = JDABuilder.createDefault(token)
+		jda = JDABuilder.createDefault(this.config.token)
 				.enableIntents(GatewayIntent.GUILD_MEMBERS)
 				.setStatus(OnlineStatus.ONLINE)
 				.setActivity(Activity.playing("MusicQuiz"))
