@@ -227,7 +227,7 @@ public class MessageManager {
 		event.reply(MessageCreateData.fromEditData(buildPrivateMessage())).setEphemeral(true).queue(hook -> {
 			this.hook = hook;
 
-			hook.deleteOriginal().queueAfter(15, TimeUnit.MINUTES, null, new ErrorHandler().ignore(ErrorResponse.UNKNOWN_MESSAGE));
+			hook.deleteOriginal().queueAfter(10, TimeUnit.MINUTES, null, new ErrorHandler().ignore(ErrorResponse.UNKNOWN_MESSAGE));
 		});
 	}
 
