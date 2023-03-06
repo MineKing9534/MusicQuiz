@@ -12,6 +12,7 @@ import de.mineking.musicquiz.commands.TokenCommand;
 import de.mineking.musicquiz.commands.VolumeCommand;
 import de.mineking.musicquiz.main.remote.RemoteServer;
 import de.mineking.musicquiz.quiz.Quiz;
+import de.mineking.musicquiz.quiz.commands.types.CommandHandler;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.OnlineStatus;
@@ -41,6 +42,7 @@ public class MusicQuiz {
 	public final AudioPlayerManager audioPlayerManager = new DefaultAudioPlayerManager();
 
 	public final RemoteServer server = new RemoteServer(this);
+	public final CommandHandler commands = new CommandHandler(this);
 
 	public static void main(String[] args) throws Exception {
 		new MusicQuiz(args.length == 1 ? args[0] : "config");

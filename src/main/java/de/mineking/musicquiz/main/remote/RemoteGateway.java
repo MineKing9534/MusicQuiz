@@ -6,21 +6,23 @@ import de.mineking.musicquiz.quiz.Quiz;
 import de.mineking.musicquiz.quiz.remote.EventData;
 import io.javalin.websocket.WsConfig;
 import io.javalin.websocket.WsContext;
+import io.javalin.websocket.WsMessageContext;
 import org.eclipse.jetty.websocket.core.CloseStatus;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 public class RemoteGateway implements Consumer<WsConfig> {
-	private record Command(long time, String command) {
-	}
+	public static class RemoteCommand {
+		public long time;
+		public String command;
+		public Map<String, Object> args;
 
-	private record CommandData(long time, Quiz quiz, long user, Future<?> task) {
+		public transient WsMessageContext context;
 	}
 
 	public static class UserData {
@@ -41,33 +43,8 @@ public class RemoteGateway implements Consumer<WsConfig> {
 	public final Map<String, Long> tokens = new HashMap<>();
 	public final Map<WsContext, UserData> data = new ConcurrentHashMap<>();
 
-	public final Map<String, CommandData> commandBuffer = new HashMap<>();
-
 	public RemoteGateway(MusicQuiz bot) {
 		this.bot = bot;
-	}
-
-	private void handleCommand(WsContext context, UserData data, Command command) {
-		context.sendAsClass(new EventData(EventData.Action.WAIT), EventData.class);
-
-		CommandData current = commandBuffer.get(command.command);
-
-		if(current == null || current.time > command.time) {
-			if(current != null) {
-				current.task.cancel(true);
-			}
-
-			Future<?> task = MusicQuiz.executor.schedule(() -> {
-				if(command.command.equals("guess")) {
-					data.quiz.setGuesser(data.quiz.getChannel().getGuild().getMemberById(data.user));
-					data.quiz.getMessages().updateMessages(null, null);
-				}
-
-				commandBuffer.remove(command.command);
-			}, 1, TimeUnit.SECONDS);
-
-			commandBuffer.put(command.command, new CommandData(command.time, data.quiz, data.user, task));
-		}
 	}
 
 	@Override
@@ -97,11 +74,10 @@ public class RemoteGateway implements Consumer<WsConfig> {
 
 			context.sendAsClass(new EventData(EventData.Action.LOGIN).put("id", String.valueOf(user)).put("quiz", quiz != null), EventData.class);
 
-			if(quiz != null && quiz.isStarted()) {
+			if(quiz != null) {
 				member.remote = context;
 
 				quiz.sendUpdate();
-				quiz.onRemoteConnect(user);
 			}
 
 			context.enableAutomaticPings(500, TimeUnit.MILLISECONDS);
@@ -114,7 +90,6 @@ public class RemoteGateway implements Consumer<WsConfig> {
 
 				if(temp.quiz != null) {
 					temp.member.remote = null;
-					temp.quiz.onRemoteDisconnect(temp.user);
 				}
 
 				data.remove(context);
@@ -123,7 +98,16 @@ public class RemoteGateway implements Consumer<WsConfig> {
 
 		wsConfig.onMessage(context -> {
 			if(data.containsKey(context)) {
-				handleCommand(context, data.get(context), context.messageAsClass(Command.class));
+				UserData user = data.get(context);
+
+				RemoteCommand cmd = context.messageAsClass(RemoteCommand.class);
+				cmd.context = context;
+
+				bot.commands.performCommand(
+						cmd,
+						user.quiz,
+						user.user
+				);
 			}
 		});
 	}

@@ -12,8 +12,8 @@ import de.mineking.musicquiz.quiz.remote.QuizData;
 import de.mineking.musicquiz.quiz.remote.RemoteData;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
+import net.dv8tion.jda.api.events.guild.voice.GuildVoiceUpdateEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
 import org.eclipse.jetty.websocket.core.CloseStatus;
 
 import java.time.Duration;
@@ -27,17 +27,12 @@ public class Quiz extends ListenerAdapter {
 	public final static Duration guessDuration = Duration.ofSeconds(15);
 
 	final MusicQuiz bot;
-	private boolean started = false;
-
-	final EventHandler events;
-	final MessageManager messages;
 
 	final List<Track> tracks;
 	int position = 0;
 
 	final long master;
 	final Map<Long, MemberData> members = new HashMap<>();
-	long selected;
 	final List<Long> ignore = new ArrayList<>();
 
 	long guesser;
@@ -55,32 +50,10 @@ public class Quiz extends ListenerAdapter {
 		Collections.shuffle(tracks);
 		this.tracks = tracks;
 		this.master = master.getIdLong();
-		this.selected = channel.getMembers().get(0).getIdLong();
 		this.channel = channel;
 		channel.getMembers().forEach(this::addMember);
 
-		events = new EventHandler(this);
-		messages = new MessageManager(this);
-
 		initializeVoiceConnection();
-
-		bot.jda.addEventListener(events);
-	}
-
-	private void initializeVoiceConnection() {
-		player = bot.audioPlayerManager.createPlayer();
-		player.setVolume(30);
-
-		channel.getGuild().getAudioManager().openAudioConnection(channel);
-		channel.getGuild().getAudioManager().setSelfDeafened(true);
-		channel.getGuild().getAudioManager().setSendingHandler(new SendHandler(player));
-	}
-
-	public void start(IReplyCallback event) {
-		started = true;
-
-		messages.updatePublicMessage(null);
-		messages.sendPrivateMessage(event);
 
 		bot.server.gateway.data.forEach((context, user) -> {
 			if(members.containsKey(user.user)) {
@@ -92,14 +65,25 @@ public class Quiz extends ListenerAdapter {
 		});
 
 		sendUpdate();
+
+		bot.jda.addEventListener(this);
 	}
 
-	public boolean isStarted() {
-		return started;
+	private void initializeVoiceConnection() {
+		player = bot.audioPlayerManager.createPlayer();
+		player.setVolume(30);
+
+		channel.getGuild().getAudioManager().openAudioConnection(channel);
+		channel.getGuild().getAudioManager().setSelfDeafened(true);
+		channel.getGuild().getAudioManager().setSendingHandler(new SendHandler(player));
 	}
 
-	public MessageManager getMessages() {
-		return messages;
+	public List<Track> getTracks() {
+		return tracks;
+	}
+
+	public int getPosition() {
+		return position;
 	}
 
 	public VoiceChannel getChannel() {
@@ -141,7 +125,6 @@ public class Quiz extends ListenerAdapter {
 		ignore.add(member.getIdLong());
 
 		guesser = member.getIdLong();
-		selected = guesser;
 		guessTime = System.currentTimeMillis();
 
 		if(guesserReset != null) {
@@ -149,11 +132,12 @@ public class Quiz extends ListenerAdapter {
 		}
 
 		sendToMember(guesser, new EventData(EventData.Action.GUESS).put("time", guessDuration.toMillis()));
+
 		guesserReset = MusicQuiz.executor.schedule(() -> {
 			guesser = 0;
 			guessTime = 0;
 
-			messages.updateMessages(null, null);
+			sendUpdate();
 		}, guessDuration.toMillis(), TimeUnit.MILLISECONDS);
 	}
 
@@ -161,7 +145,7 @@ public class Quiz extends ListenerAdapter {
 		player.setVolume(volume);
 	}
 
-	void stop() {
+	public void stop() {
 		members.forEach((m, data) -> {
 			if(data.remote != null) {
 				data.remote.closeSession(CloseStatus.NORMAL, "Quiz has ended!");
@@ -169,19 +153,33 @@ public class Quiz extends ListenerAdapter {
 			}
 		});
 
-		messages.cleanup();
-
 		channel.getGuild().getAudioManager().closeAudioConnection();
 
 		bot.quizzes.remove(this);
-		bot.jda.removeEventListener(events);
+		bot.jda.removeEventListener(this);
 	}
 
-	public void playTrack() {
+	public void stopTrack() {
+		player.stopTrack();
+	}
+
+	public void playTrack(int delta) {
+		if(delta > 0) {
+			position += delta;
+			ignore.clear();
+		}
+
+		guesser = 0;
+		sendUpdate();
+
+		playTrack();
+	}
+
+	private void playTrack() {
 		guesser = 0;
 		guessTime = 0;
 
-		messages.updatePublicMessage(null);
+		sendUpdate();
 
 		Track quest = tracks.get(position);
 
@@ -193,7 +191,7 @@ public class Quiz extends ListenerAdapter {
 		});
 	}
 
-	public void playTrack(String url, Consumer<AudioTrack> handler) {
+	private void playTrack(String url, Consumer<AudioTrack> handler) {
 		bot.audioPlayerManager.loadItem(url, new AudioLoadResultHandler() {
 			@Override
 			public void trackLoaded(AudioTrack track) {
@@ -218,38 +216,29 @@ public class Quiz extends ListenerAdapter {
 	}
 
 	public void sendToAll(RemoteData data) {
-		members.forEach((id, m) -> m.send(data));
+		members.forEach((id, m) -> {
+			if(id == master) {
+				return;
+			}
+
+			m.send(data);
+		});
 	}
 
 	public void sendUpdate() {
-		sendToAll(new QuizData(this));
+		sendToAll(new QuizData(this, false));
+		sendToMember(master, new QuizData(this, true));
 	}
 
-	private final Map<Long, Future<?>> ignoreConnect = new HashMap<>();
-
-	private void handleConnect(long user, String name) {
-		if(user == master) {
-			return;
+	@Override
+	public void onGuildVoiceUpdate(GuildVoiceUpdateEvent event) {
+		if(event.getChannelJoined() != null && event.getChannelJoined().equals(channel)) {
+			addMember(event.getMember());
+			sendUpdate();
 		}
 
-		boolean contains = false;
-
-		if(ignoreConnect.containsKey(user)) {
-			contains = true;
-
-			ignoreConnect.remove(user).cancel(true);
+		if(event.getChannelLeft() != null && event.getChannelLeft().equals(channel) && event.getMember().equals(event.getGuild().getSelfMember())) {
+			stop();
 		}
-
-		if(!contains) {
-			ignoreConnect.put(user, MusicQuiz.executor.schedule(() -> messages.sendConnectMessage(bot.jda.getUserById(user), name), 1, TimeUnit.SECONDS));
-		}
-	}
-
-	public void onRemoteConnect(long user) {
-		handleConnect(user, "remote.connect");
-	}
-
-	public void onRemoteDisconnect(long user) {
-		handleConnect(user, "remote.disconnect");
 	}
 }

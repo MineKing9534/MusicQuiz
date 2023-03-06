@@ -1,14 +1,13 @@
 package de.mineking.musicquiz.quiz.remote;
 
-import de.mineking.musicquiz.quiz.MemberData;
 import de.mineking.musicquiz.quiz.Quiz;
+import de.mineking.musicquiz.quiz.Track;
 
-import java.util.*;
-import java.util.function.BiConsumer;
-import java.util.function.BinaryOperator;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.stream.Collector;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class QuizData extends RemoteData {
 	public record RemoteMemberData(String name, Integer points) {
@@ -20,47 +19,30 @@ public class QuizData extends RemoteData {
 	public final String guesser;
 	public final String master;
 
-	public QuizData(Quiz quiz) {
+	public List<Track> tracks;
+	public int position;
+
+	public QuizData(Quiz quiz, boolean master) {
 		super(Type.UPDATE);
 
 		this.channel = quiz.getChannel().getName();
 		this.members = quiz.getMembers().entrySet().stream()
 				.sorted(Comparator.comparing(e -> e.getValue().points.get(), Comparator.reverseOrder()))
-				.collect(new Collector<Map.Entry<Long, MemberData>, Map<String, RemoteMemberData>, Map<String, RemoteMemberData>>() {
-					@Override
-					public Supplier<Map<String, RemoteMemberData>> supplier() {
-						return LinkedHashMap::new;
-					}
-
-					@Override
-					public BiConsumer<Map<String, RemoteMemberData>, Map.Entry<Long, MemberData>> accumulator() {
-						return (m, d) -> m.putIfAbsent(String.valueOf(d.getKey()), new RemoteMemberData(
-								quiz.getChannel().getGuild().getMemberById(d.getKey()).getEffectiveName(),
-								d.getValue().points.get()
-						));
-					}
-
-					@Override
-					public BinaryOperator<Map<String, RemoteMemberData>> combiner() {
-						return (m1, m2) -> {
-							m2.forEach(m1::putIfAbsent);
-							return m1;
-						};
-					}
-
-					@Override
-					public Function<Map<String, RemoteMemberData>, Map<String, RemoteMemberData>> finisher() {
-						return m -> m;
-					}
-
-					@Override
-					public Set<Characteristics> characteristics() {
-						return Collections.singleton(Characteristics.IDENTITY_FINISH);
-					}
-				});
+				.collect(Collectors.toMap(
+						e -> String.valueOf(e.getKey()),
+						e -> new RemoteMemberData(
+								quiz.getChannel().getGuild().getMemberById(e.getKey()).getEffectiveName(),
+								e.getValue().points.get()
+						),
+						(k1, k2) -> k1,
+						LinkedHashMap::new
+				));
 
 		this.ignored = quiz.getIgnored().stream().map(String::valueOf).toList();
 		this.guesser = quiz.getGuesser() != 0 ? String.valueOf(quiz.getGuesser()) : null;
 		this.master = String.valueOf(quiz.getMaster());
+
+		this.position = quiz.getPosition();
+		this.tracks = master ? quiz.getTracks() : quiz.getTracks().subList(0, position);
 	}
 }
