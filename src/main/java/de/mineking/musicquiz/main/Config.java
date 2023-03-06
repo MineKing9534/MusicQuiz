@@ -6,6 +6,7 @@ import java.io.FileReader;
 
 public class Config {
 	public String token;
+	public String url;
 
 	public static Config readFromFile(String path) throws Exception {
 		try(FileReader r = new FileReader(path)) {
