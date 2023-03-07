@@ -131,8 +131,6 @@ public class Quiz extends ListenerAdapter {
 			guesserReset.cancel(true);
 		}
 
-		sendToMember(guesser, new EventData(EventData.Action.GUESS).put("time", guessDuration.toMillis()));
-
 		guesserReset = MusicQuiz.executor.schedule(() -> {
 			guesser = 0;
 			guessTime = 0;

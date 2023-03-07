@@ -23,7 +23,5 @@ public class ConfirmCommand extends Command implements MasterCommand {
 				.put("title", track.title)
 				.put("author", track.author)
 		);
-
-		quiz.sendUpdate();
 	}
 }
