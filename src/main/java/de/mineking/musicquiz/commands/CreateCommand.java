@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -37,7 +38,7 @@ public class CreateCommand extends GlobalSlashCommand {
 		context.event.deferReply(true).queue();
 
 		try {
-			List<Track> quests = parseQuests(context.getOption("file", OptionMapping::getAsAttachment).getProxy().download().get());
+			List<Track> tracks = parseQuests(context.getOption("file", OptionMapping::getAsAttachment).getProxy().download().get());
 
 			VoiceChannel channel;
 
@@ -49,7 +50,9 @@ public class CreateCommand extends GlobalSlashCommand {
 				return;
 			}
 
-			bot.quizzes.add(new Quiz(bot, channel, quests, context.event.getMember()));
+			Collections.shuffle(tracks);
+
+			bot.quizzes.add(new Quiz(bot, channel, tracks, context.event.getMember()));
 
 			Messages.send(context.event, "create.success", Messages.Color.SUCCESS);
 		} catch(Exception e) {

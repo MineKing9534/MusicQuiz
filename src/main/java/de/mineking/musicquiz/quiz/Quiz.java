@@ -7,7 +7,6 @@ import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.TrackMarker;
 import de.mineking.musicquiz.main.MusicQuiz;
-import de.mineking.musicquiz.quiz.remote.EventData;
 import de.mineking.musicquiz.quiz.remote.QuizData;
 import de.mineking.musicquiz.quiz.remote.RemoteData;
 import net.dv8tion.jda.api.entities.Member;
@@ -47,7 +46,6 @@ public class Quiz extends ListenerAdapter {
 	public Quiz(MusicQuiz bot, VoiceChannel channel, List<Track> tracks, Member master) {
 		this.bot = bot;
 
-		Collections.shuffle(tracks);
 		this.tracks = tracks;
 		this.master = master.getIdLong();
 		this.channel = channel;
