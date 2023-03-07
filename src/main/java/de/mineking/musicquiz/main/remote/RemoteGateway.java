@@ -4,6 +4,7 @@ import de.mineking.musicquiz.main.MusicQuiz;
 import de.mineking.musicquiz.quiz.MemberData;
 import de.mineking.musicquiz.quiz.Quiz;
 import de.mineking.musicquiz.quiz.remote.EventData;
+import io.javalin.http.HttpResponseException;
 import io.javalin.websocket.WsConfig;
 import io.javalin.websocket.WsContext;
 import io.javalin.websocket.WsMessageContext;
@@ -103,11 +104,15 @@ public class RemoteGateway implements Consumer<WsConfig> {
 				RemoteCommand cmd = context.messageAsClass(RemoteCommand.class);
 				cmd.context = context;
 
-				bot.commands.performCommand(
-						cmd,
-						user.quiz,
-						user.user
-				);
+				try {
+					bot.commands.performCommand(
+							cmd,
+							user.quiz,
+							user.user
+					);
+				} catch(HttpResponseException e) {
+					context.sendAsClass(new EventData(EventData.Action.ERROR).put("message", e.getMessage()).put("status", e.getStatus()), EventData.class);
+				}
 			}
 		});
 	}
