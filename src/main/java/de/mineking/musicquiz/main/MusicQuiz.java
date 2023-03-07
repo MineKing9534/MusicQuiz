@@ -8,7 +8,7 @@ import de.mineking.discord.commands.CommandManager;
 import de.mineking.discord.commands.CommandManagerBuilder;
 import de.mineking.discord.localization.DefaultLocalizationMapper;
 import de.mineking.musicquiz.commands.CreateCommand;
-import de.mineking.musicquiz.commands.TokenCommand;
+import de.mineking.musicquiz.commands.LoginCommand;
 import de.mineking.musicquiz.commands.VolumeCommand;
 import de.mineking.musicquiz.main.remote.RemoteServer;
 import de.mineking.musicquiz.quiz.Quiz;
@@ -54,7 +54,7 @@ public class MusicQuiz {
 		cmdMan = CommandManagerBuilder.createDefault()
 				.setAutoUpdate(true)
 				.registerGlobalCommand("create", new CreateCommand(this))
-				.registerGlobalCommand("token", new TokenCommand(this))
+				.registerGlobalCommand("login", new LoginCommand(this))
 				.registerGlobalCommand("volume", new VolumeCommand(this))
 				.setLocaleMapper(
 						new DefaultLocalizationMapper(
