@@ -14,7 +14,7 @@ public class ScoreCommand extends Command implements MasterCommand {
 
 	@Override
 	public void performCommand(Quiz quiz, long user, Map<String, Object> args) {
-		quiz.getMembers().get(Long.parseLong((String) args.get("user"))).points.addAndGet((int) args.get("delta"));
+		quiz.getMembers().get(Long.parseLong((String) args.get("user"))).points.addAndGet((int) (double) args.get("delta"));
 		quiz.sendUpdate();
 	}
 }

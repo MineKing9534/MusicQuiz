@@ -15,11 +15,11 @@ public class ExtendCommand extends Command implements MasterCommand {
 	@Override
 	public void performCommand(Quiz quiz, long user, Map<String, Object> args) {
 		if(args.containsKey("delta")) {
-			quiz.getTracks().get(0).end += (int) args.get("delta");
+			quiz.getTracks().get(0).end += (double) args.get("delta");
 		}
 
 		else if(args.containsKey("value")) {
-			quiz.getTracks().get(0).end = (int) args.get("value");
+			quiz.getTracks().get(0).end = (int) (double) args.get("value");
 		}
 
 		quiz.sendUpdate();
