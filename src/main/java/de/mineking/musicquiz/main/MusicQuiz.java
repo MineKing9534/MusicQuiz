@@ -54,7 +54,7 @@ public class MusicQuiz {
 		this.config = Config.readFromFile(config);
 
 		cmdMan = CommandManagerBuilder.createDefault()
-				.setAutoUpdate(true)
+				.setAutoUpdate(false)
 				.registerGlobalCommand("create", new CreateCommand(this))
 				.registerGlobalCommand("save", new SaveCommand(this))
 				.registerGlobalCommand("login", new LoginCommand(this))
