@@ -27,12 +27,12 @@ public class QuizData extends RemoteData {
 
 		this.channel = quiz.getChannel().getName();
 		this.members = quiz.getMembers().entrySet().stream()
-				.sorted(Comparator.comparing(e -> e.getValue().points.get(), Comparator.reverseOrder()))
+				.sorted(Comparator.comparing(e -> e.getValue().get(), Comparator.reverseOrder()))
 				.collect(Collectors.toMap(
 						e -> String.valueOf(e.getKey()),
 						e -> new RemoteMemberData(
 								quiz.getChannel().getGuild().getMemberById(e.getKey()).getEffectiveName(),
-								e.getValue().points.get()
+								e.getValue().get()
 						),
 						(k1, k2) -> k1,
 						LinkedHashMap::new

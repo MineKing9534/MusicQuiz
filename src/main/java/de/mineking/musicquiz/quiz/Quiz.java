@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 public class Quiz extends ListenerAdapter {
@@ -35,7 +36,7 @@ public class Quiz extends ListenerAdapter {
 	int position;
 
 	final long master;
-	final Map<Long, MemberData> members = new HashMap<>();
+	final Map<Long, AtomicInteger> members = new HashMap<>();
 	final List<Long> ignore = new ArrayList<>();
 
 	long guesser;
@@ -61,21 +62,11 @@ public class Quiz extends ListenerAdapter {
 				return;
 			}
 
-			members.putIfAbsent(id, new MemberData(0));
-			members.get(id).points.set(score);
+			members.putIfAbsent(id, new AtomicInteger());
+			members.get(id).set(score);
 		});
 
 		initializeVoiceConnection();
-
-		bot.server.gateway.data.forEach((context, user) -> {
-			if(members.containsKey(user.user)) {
-				MemberData member = members.get(user.user);
-				member.remote = context;
-
-				user.quiz = new MusicQuiz.QuizData(this, member);
-			}
-		});
-
 		sendUpdate();
 
 		bot.jda.addEventListener(this);
@@ -102,7 +93,7 @@ public class Quiz extends ListenerAdapter {
 		return channel;
 	}
 
-	public Map<Long, MemberData> getMembers() {
+	public Map<Long, AtomicInteger> getMembers() {
 		return members;
 	}
 
@@ -123,7 +114,7 @@ public class Quiz extends ListenerAdapter {
 			return;
 		}
 
-		members.putIfAbsent(m.getIdLong(), new MemberData(m.getIdLong() == master ? Integer.MAX_VALUE : 0));
+		members.putIfAbsent(m.getIdLong(), new AtomicInteger(m.getIdLong() == master ? Integer.MAX_VALUE : 0));
 	}
 
 	public void setGuesser(Member member) {
@@ -156,12 +147,7 @@ public class Quiz extends ListenerAdapter {
 	}
 
 	public void stop() {
-		members.forEach((m, data) -> {
-			if(data.remote != null) {
-				data.remote.closeSession(CloseStatus.NORMAL, "Quiz has ended!");
-				bot.server.gateway.data.remove(data.remote);
-			}
-		});
+		members.forEach((id, points) -> bot.server.gateway.getUserConnections(id).forEach(context -> context.closeSession(CloseStatus.NORMAL, "Quiz has ended!")));
 
 		channel.getGuild().getAudioManager().closeAudioConnection();
 
@@ -222,16 +208,16 @@ public class Quiz extends ListenerAdapter {
 	}
 
 	public void sendToMember(long member, RemoteData data) {
-		members.get(member).send(data);
+		bot.server.gateway.getUserConnections(member).forEach(context -> context.send(data));
 	}
 
 	public void sendToAll(RemoteData data) {
-		members.forEach((id, m) -> {
+		members.forEach((id, points) -> {
 			if(id == master) {
 				return;
 			}
 
-			m.send(data);
+			sendToMember(id, data);
 		});
 	}
 

@@ -6,6 +6,7 @@ import de.mineking.discord.commands.commands.global.GlobalSlashCommand;
 import de.mineking.discord.commands.context.global.GlobalSlashContext;
 import de.mineking.musicquiz.main.Messages;
 import de.mineking.musicquiz.main.MusicQuiz;
+import de.mineking.musicquiz.quiz.Quiz;
 import de.mineking.musicquiz.quiz.Track;
 import kotlin.text.Charsets;
 import net.dv8tion.jda.api.utils.FileUpload;
@@ -32,7 +33,7 @@ public class SaveCommand extends GlobalSlashCommand {
 
 	@Override
 	protected void performCommand(GlobalSlashContext context) {
-		MusicQuiz.QuizData quiz = bot.getQuizByUser(context.user.getIdLong(), true);
+		Quiz quiz = bot.getQuizByUser(context.user.getIdLong(), true);
 
 		if(quiz == null) {
 			Messages.send(context.event, "quiz.missing", Messages.Color.ERROR);
@@ -41,13 +42,13 @@ public class SaveCommand extends GlobalSlashCommand {
 		}
 
 		String data = gson.toJson(new SaveData(
-				quiz.quiz().getMaster(),
-				quiz.quiz().getTracks(),
-				quiz.quiz().getPosition(),
-				quiz.quiz().getMembers().entrySet().stream()
+				quiz.getMaster(),
+				quiz.getTracks(),
+				quiz.getPosition(),
+				quiz.getMembers().entrySet().stream()
 						.collect(Collectors.toMap(
 								Map.Entry::getKey,
-								e -> e.getValue().points.get()
+								e -> e.getValue().get()
 						))
 		));
 

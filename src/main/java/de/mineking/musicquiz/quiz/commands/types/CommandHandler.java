@@ -5,6 +5,7 @@ import de.mineking.musicquiz.main.remote.RemoteGateway;
 import de.mineking.musicquiz.quiz.Quiz;
 import de.mineking.musicquiz.quiz.commands.*;
 import de.mineking.musicquiz.quiz.remote.EventData;
+import io.javalin.http.ConflictResponse;
 import io.javalin.http.ForbiddenResponse;
 
 import java.util.HashMap;
@@ -31,9 +32,15 @@ public class CommandHandler {
 		commands.put("score", new ScoreCommand(bot));
 
 		commands.put("end", new EndCommand(bot));
+
+		commands.put("leave", new LeaveCommand(bot));
 	}
 
 	public void performCommand(RemoteGateway.RemoteCommand command, Quiz quiz, long user) {
+		if(quiz == null) {
+			throw new ConflictResponse("No quiz");
+		}
+
 		if(command.args == null) {
 			command.args = new HashMap<>();
 		}
@@ -53,7 +60,7 @@ public class CommandHandler {
 		}
 
 		else {
-			command.context.sendAsClass(new EventData(EventData.Action.WAIT), EventData.class);
+			command.context.send(new EventData(EventData.Action.WAIT));
 			CacheData current = commandBuffer.get(command.command);
 
 			if(current == null || current.time > command.time) {
