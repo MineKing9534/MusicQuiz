@@ -50,36 +50,28 @@ public class RemoteGateway implements Consumer<WsConfig> {
 
 	@Override
 	public void accept(WsConfig wsConfig) {
-		wsConfig.onConnect(context -> {
-			if(!tokens.containsKey(context.header("Sec-WebSocket-Protocol"))) {
-				context.closeSession(CloseStatus.NORMAL, "Invalid authentication");
-
-				return;
-			}
-
-			Long user = tokens.get(context.header("Sec-WebSocket-Protocol"));
-
-			if(user == null) {
-				context.closeSession(CloseStatus.NORMAL, "Invalid authentication");
-
-				return;
-			}
-
-			Quiz quiz = bot.getQuizByUser(user, false);
-			context.send(new EventData(EventData.Action.LOGIN).put("id", String.valueOf(user)).put("quiz", quiz != null));
-
-			if(quiz != null) {
-				context.send(new QuizData(quiz, quiz.getMaster() == user));
-			}
-
-			context.enableAutomaticPings(500, TimeUnit.MILLISECONDS);
-			users.put(context, user);
-		});
-
-		wsConfig.onClose(users::remove);
-
 		wsConfig.onMessage(context -> {
-			if(users.containsKey(context)) {
+			if(!users.containsKey(context)) {
+				Long user = tokens.get(context.message());
+
+				if(user == null) {
+					context.closeSession(CloseStatus.NORMAL, "Invalid authentication");
+
+					return;
+				}
+
+				Quiz quiz = bot.getQuizByUser(user, false);
+				context.send(new EventData(EventData.Action.LOGIN).put("id", String.valueOf(user)).put("quiz", quiz != null));
+
+				if(quiz != null) {
+					context.send(new QuizData(quiz, quiz.getMaster() == user));
+				}
+
+				context.enableAutomaticPings(500, TimeUnit.MILLISECONDS);
+				users.put(context, user);
+			}
+
+			else {
 				long user = users.get(context);
 
 				RemoteCommand cmd = context.messageAsClass(RemoteCommand.class);
@@ -96,5 +88,7 @@ public class RemoteGateway implements Consumer<WsConfig> {
 				}
 			}
 		});
+
+		wsConfig.onClose(users::remove);
 	}
 }
