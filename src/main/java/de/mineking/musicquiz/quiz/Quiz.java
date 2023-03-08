@@ -6,6 +6,7 @@ import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.TrackMarker;
+import de.mineking.musicquiz.commands.SaveCommand;
 import de.mineking.musicquiz.main.MusicQuiz;
 import de.mineking.musicquiz.quiz.remote.QuizData;
 import de.mineking.musicquiz.quiz.remote.RemoteData;
@@ -16,7 +17,10 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.eclipse.jetty.websocket.core.CloseStatus;
 
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -28,7 +32,7 @@ public class Quiz extends ListenerAdapter {
 	final MusicQuiz bot;
 
 	final List<Track> tracks;
-	int position = 0;
+	int position;
 
 	final long master;
 	final Map<Long, MemberData> members = new HashMap<>();
@@ -43,22 +47,32 @@ public class Quiz extends ListenerAdapter {
 
 	AudioPlayer player;
 
-	public Quiz(MusicQuiz bot, VoiceChannel channel, List<Track> tracks, Member master) {
+	public Quiz(MusicQuiz bot, VoiceChannel channel, SaveCommand.SaveData data) {
 		this.bot = bot;
 
-		this.tracks = tracks;
-		this.master = master.getIdLong();
+		this.tracks = data.tracks();
+		this.position = data.position();
+		this.master = data.master();
 		this.channel = channel;
+
 		channel.getMembers().forEach(this::addMember);
+		data.points().forEach((id, score) -> {
+			if(id == master) {
+				return;
+			}
+
+			members.putIfAbsent(id, new MemberData(0));
+			members.get(id).points.set(score);
+		});
 
 		initializeVoiceConnection();
 
 		bot.server.gateway.data.forEach((context, user) -> {
 			if(members.containsKey(user.user)) {
-				user.quiz = this;
-				user.member = members.get(user.user);
+				MemberData member = members.get(user.user);
+				member.remote = context;
 
-				user.member.remote = context;
+				user.quiz = new MusicQuiz.QuizData(this, member);
 			}
 		});
 

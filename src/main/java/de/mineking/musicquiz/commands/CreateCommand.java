@@ -1,5 +1,6 @@
 package de.mineking.musicquiz.commands;
 
+import com.google.gson.Gson;
 import de.mineking.discord.commands.commands.global.GlobalSlashCommand;
 import de.mineking.discord.commands.context.global.GlobalSlashContext;
 import de.mineking.discord.commands.option.Option;
@@ -13,12 +14,8 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,9 +34,7 @@ public class CreateCommand extends GlobalSlashCommand {
 	protected void performCommand(GlobalSlashContext context) {
 		context.event.deferReply(true).queue();
 
-		try {
-			List<Track> tracks = parseQuests(context.getOption("file", OptionMapping::getAsAttachment).getProxy().download().get());
-
+		try(InputStreamReader isr = new InputStreamReader(context.getOption("file", OptionMapping::getAsAttachment).getProxy().download().get()); BufferedReader reader = new BufferedReader(isr)) {
 			VoiceChannel channel;
 
 			try {
@@ -50,9 +45,16 @@ public class CreateCommand extends GlobalSlashCommand {
 				return;
 			}
 
-			Collections.shuffle(tracks);
+			SaveCommand.SaveData data;
 
-			bot.quizzes.add(new Quiz(bot, channel, tracks, context.event.getMember()));
+			try {
+				data = new Gson().fromJson(reader, SaveCommand.SaveData.class);
+			} catch(Exception ignored) {
+				data = new SaveCommand.SaveData(context.user.getIdLong(), parseQuests(reader), 0, new HashMap<>());
+				Collections.shuffle(data.tracks());
+			}
+
+			bot.quizzes.add(new Quiz(bot, channel, data));
 
 			Messages.send(context.event, "create.success", Messages.Color.SUCCESS);
 		} catch(Exception e) {
@@ -62,23 +64,21 @@ public class CreateCommand extends GlobalSlashCommand {
 		}
 	}
 
-	List<Track> parseQuests(InputStream stream) throws IOException {
+	List<Track> parseQuests(BufferedReader reader) throws IOException {
 		List<Track> result = new ArrayList<>();
 
-		try(InputStreamReader isr = new InputStreamReader(stream); BufferedReader reader = new BufferedReader(isr)) {
-			String line;
-			while((line = reader.readLine()) != null) {
-				Matcher m = Pattern.compile("(?<url>.*?)\\?t=(?<start>\\d+) \\+(?<end>\\d+)s \"(?<title>.*?)\" - \"(?<artists>.*?)\"").matcher(line);
+		String line;
+		while((line = reader.readLine()) != null) {
+			Matcher m = Pattern.compile("(?<url>.*?)\\?t=(?<start>\\d+) \\+(?<end>\\d+)s \"(?<title>.*?)\" - \"(?<artists>.*?)\"").matcher(line);
 
-				if(m.matches()) {
-					result.add(new Track(
-							m.group("url"),
-							Long.parseLong(m.group("start")),
-							Long.parseLong(m.group("end")),
-							m.group("title"),
-							m.group("artists")
-					));
-				}
+			if(m.matches()) {
+				result.add(new Track(
+						m.group("url"),
+						Long.parseLong(m.group("start")),
+						Long.parseLong(m.group("end")),
+						m.group("title"),
+						m.group("artists")
+				));
 			}
 		}
 

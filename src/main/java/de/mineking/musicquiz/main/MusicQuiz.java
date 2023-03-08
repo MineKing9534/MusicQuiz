@@ -9,8 +9,10 @@ import de.mineking.discord.commands.CommandManagerBuilder;
 import de.mineking.discord.localization.DefaultLocalizationMapper;
 import de.mineking.musicquiz.commands.CreateCommand;
 import de.mineking.musicquiz.commands.LoginCommand;
+import de.mineking.musicquiz.commands.SaveCommand;
 import de.mineking.musicquiz.commands.VolumeCommand;
 import de.mineking.musicquiz.main.remote.RemoteServer;
+import de.mineking.musicquiz.quiz.MemberData;
 import de.mineking.musicquiz.quiz.Quiz;
 import de.mineking.musicquiz.quiz.commands.types.CommandHandler;
 import net.dv8tion.jda.api.JDA;
@@ -54,6 +56,7 @@ public class MusicQuiz {
 		cmdMan = CommandManagerBuilder.createDefault()
 				.setAutoUpdate(true)
 				.registerGlobalCommand("create", new CreateCommand(this))
+				.registerGlobalCommand("save", new SaveCommand(this))
 				.registerGlobalCommand("login", new LoginCommand(this))
 				.registerGlobalCommand("volume", new VolumeCommand(this))
 				.setLocaleMapper(
@@ -77,5 +80,24 @@ public class MusicQuiz {
 		audioPlayerManager.registerSourceManager(new HttpAudioSourceManager());
 
 		server.start();
+	}
+
+	public record QuizData(Quiz quiz, MemberData member) {
+	}
+
+	public QuizData getQuizByUser(long user, boolean master) {
+		for(Quiz quiz : quizzes) {
+			if(master && user != quiz.getMaster()) {
+				continue;
+			}
+
+			for(var entry : quiz.getMembers().entrySet()) {
+				if(entry.getKey() == user) {
+					return new QuizData(quiz, entry.getValue());
+				}
+			}
+		}
+
+		return null;
 	}
 }

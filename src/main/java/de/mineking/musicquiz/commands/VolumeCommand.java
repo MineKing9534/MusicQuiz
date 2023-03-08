@@ -5,7 +5,6 @@ import de.mineking.discord.commands.context.global.GlobalSlashContext;
 import de.mineking.discord.commands.option.Option;
 import de.mineking.musicquiz.main.Messages;
 import de.mineking.musicquiz.main.MusicQuiz;
-import de.mineking.musicquiz.quiz.Quiz;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 
@@ -23,18 +22,17 @@ public class VolumeCommand extends GlobalSlashCommand {
 
 	@Override
 	protected void performCommand(GlobalSlashContext context) {
-		for(Quiz quiz : bot.quizzes) {
-			if(quiz.getMaster() == context.event.getMember().getIdLong()) {
-				int volume = context.getOption("volume", OptionMapping::getAsInt);
+		MusicQuiz.QuizData quiz = bot.getQuizByUser(context.user.getIdLong(), true);
 
-				quiz.setVolume(volume);
+		if(quiz == null) {
+			Messages.send(context.event, "quiz.missing", Messages.Color.ERROR);
 
-				Messages.send(context.event, "volume.success", Messages.Color.SUCCESS, volume);
-
-				return;
-			}
+			return;
 		}
 
-		Messages.send(context.event, "volume.missing", Messages.Color.ERROR);
+		int volume = context.getOption("volume", OptionMapping::getAsInt);
+
+		quiz.quiz().setVolume(volume);
+		Messages.send(context.event, "volume.success", Messages.Color.SUCCESS, volume);
 	}
 }
