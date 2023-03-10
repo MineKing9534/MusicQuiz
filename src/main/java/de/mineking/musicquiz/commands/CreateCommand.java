@@ -1,6 +1,7 @@
 package de.mineking.musicquiz.commands;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonParseException;
 import de.mineking.discord.commands.commands.global.GlobalSlashCommand;
 import de.mineking.discord.commands.context.global.GlobalSlashContext;
 import de.mineking.discord.commands.option.Option;
@@ -12,9 +13,7 @@ import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,34 +33,40 @@ public class CreateCommand extends GlobalSlashCommand {
 	protected void performCommand(GlobalSlashContext context) {
 		context.event.deferReply(true).queue();
 
-		try(InputStreamReader isr = new InputStreamReader(context.getOption("file", OptionMapping::getAsAttachment).getProxy().download().get()); BufferedReader reader = new BufferedReader(isr)) {
-			VoiceChannel channel;
+		VoiceChannel channel;
 
-			try {
-				channel = Objects.requireNonNull(context.event.getMember().getVoiceState().getChannel().asVoiceChannel());
-			} catch(Exception e) {
-				Messages.send(context.event, "create.missing-voice", Messages.Color.ERROR);
+		try {
+			channel = Objects.requireNonNull(context.event.getMember().getVoiceState().getChannel().asVoiceChannel());
+		} catch(Exception e) {
+			Messages.send(context.event, "create.missing-voice", Messages.Color.ERROR);
 
-				return;
+			return;
+		}
+
+		SaveCommand.SaveData data;
+
+		try(InputStream file = context.getOption("file", OptionMapping::getAsAttachment).getProxy().download().get()) {
+			ByteArrayOutputStream boas = new ByteArrayOutputStream();
+			file.transferTo(boas);
+
+			try(InputStreamReader isr = new InputStreamReader(new ByteArrayInputStream(boas.toByteArray()))) {
+				data = new Gson().fromJson(isr, SaveCommand.SaveData.class);
+			} catch(JsonParseException e) {
+				try(InputStreamReader isr = new InputStreamReader(new ByteArrayInputStream(boas.toByteArray())); BufferedReader reader = new BufferedReader(isr)) {
+					data = new SaveCommand.SaveData(context.user.getIdLong(), parseQuests(reader), 0, new HashMap<>());
+					Collections.shuffle(data.tracks());
+				}
 			}
-
-			SaveCommand.SaveData data;
-
-			try {
-				data = new Gson().fromJson(reader, SaveCommand.SaveData.class);
-			} catch(Exception ignored) {
-				data = new SaveCommand.SaveData(context.user.getIdLong(), parseQuests(reader), 0, new HashMap<>());
-				Collections.shuffle(data.tracks());
-			}
-
-			bot.quizzes.add(new Quiz(bot, channel, data));
-
-			Messages.send(context.event, "create.success", Messages.Color.SUCCESS);
 		} catch(Exception e) {
 			e.printStackTrace();
-
 			Messages.send(context.event, "error", Messages.Color.ERROR, e.getMessage());
+
+			return;
 		}
+
+		bot.quizzes.add(new Quiz(bot, channel, data));
+
+		Messages.send(context.event, "create.success", Messages.Color.SUCCESS);
 	}
 
 	List<Track> parseQuests(BufferedReader reader) throws IOException {

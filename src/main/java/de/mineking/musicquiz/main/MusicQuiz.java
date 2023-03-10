@@ -1,5 +1,6 @@
 package de.mineking.musicquiz.main;
 
+import com.github.topisenpai.lavasrc.spotify.SpotifySourceManager;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager;
 import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager;
 import com.sedmelluq.discord.lavaplayer.source.http.HttpAudioSourceManager;
@@ -7,10 +8,7 @@ import com.sedmelluq.discord.lavaplayer.source.youtube.YoutubeAudioSourceManager
 import de.mineking.discord.commands.CommandManager;
 import de.mineking.discord.commands.CommandManagerBuilder;
 import de.mineking.discord.localization.DefaultLocalizationMapper;
-import de.mineking.musicquiz.commands.CreateCommand;
-import de.mineking.musicquiz.commands.LoginCommand;
-import de.mineking.musicquiz.commands.SaveCommand;
-import de.mineking.musicquiz.commands.VolumeCommand;
+import de.mineking.musicquiz.commands.*;
 import de.mineking.musicquiz.main.remote.RemoteServer;
 import de.mineking.musicquiz.quiz.Quiz;
 import de.mineking.musicquiz.quiz.commands.types.CommandHandler;
@@ -45,12 +43,15 @@ public class MusicQuiz {
 	public final RemoteServer server = new RemoteServer(this);
 	public final CommandHandler commands = new CommandHandler(this);
 
+	public final SpotifyManager spotify;
+
 	public static void main(String[] args) throws Exception {
 		new MusicQuiz(args.length == 1 ? args[0] : "config");
 	}
 
 	public MusicQuiz(String config) throws Exception {
 		this.config = Config.readFromFile(config);
+		this.spotify = new SpotifyManager(this);
 
 		cmdMan = CommandManagerBuilder.createDefault()
 				.setAutoUpdate(false)
@@ -58,6 +59,7 @@ public class MusicQuiz {
 				.registerGlobalCommand("save", new SaveCommand(this))
 				.registerGlobalCommand("login", new LoginCommand(this))
 				.registerGlobalCommand("volume", new VolumeCommand(this))
+				.registerGlobalCommand("generate", new GenerateCommand(this))
 				.setLocaleMapper(
 						new DefaultLocalizationMapper(
 								Collections.singletonList(DiscordLocale.GERMAN), (lang, key) ->
@@ -76,6 +78,20 @@ public class MusicQuiz {
 				.awaitReady();
 
 		audioPlayerManager.registerSourceManager(new YoutubeAudioSourceManager());
+		audioPlayerManager.registerSourceManager(
+				new SpotifySourceManager(
+						new String[]{
+								"ytmsearch:\"%ISRC%\"",
+								"ytsearch:\"%ISRC%\"",
+								"ytmsearch:%QUERY%",
+								"ytsearch:%QUERY%"
+						},
+						this.config.spotifyClientId,
+						this.config.spotifyClientSecret,
+						"US",
+						audioPlayerManager
+				)
+		);
 		audioPlayerManager.registerSourceManager(new HttpAudioSourceManager());
 
 		server.start();

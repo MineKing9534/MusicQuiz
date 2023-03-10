@@ -8,6 +8,9 @@ public class Config {
 	public String token;
 	public String url;
 
+	public String spotifyClientId;
+	public String spotifyClientSecret;
+
 	public static Config readFromFile(String path) throws Exception {
 		try(FileReader r = new FileReader(path)) {
 			return new Gson().fromJson(r, Config.class);
